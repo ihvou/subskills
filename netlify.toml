@@ -1,0 +1,21 @@
+# Netlify deploy config for the web app (apps/web) in this npm-workspaces monorepo.
+#
+# Base directory is the Next.js package; Netlify detects the workspace root and
+# installs from there, so `@skillsaggregator/shared` (consumed as TS source via
+# next.config `transpilePackages`) resolves without a separate build step.
+#
+# The Next.js runtime plugin handles SSR, ISR, and Server Actions. `publish` is
+# set explicitly (relative to `base`, so it resolves to apps/web/.next) to
+# override a stale UI-set publish dir that doubled the path
+# (apps/web/apps/web/.next) and failed the first deploy.
+
+[build]
+  base = "apps/web"
+  command = "node ../../scripts/check-netlify-public-env.mjs && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

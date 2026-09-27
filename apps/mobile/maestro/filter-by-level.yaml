@@ -1,0 +1,10 @@
+appId: com.skillsaggregator.mobile
+---
+- launchApp
+- tapOn: "Surfing"
+- assertVisible: "Surfing"
+- tapOn: "beginner"
+- tapOn: "Pop-up"
+- assertVisible: "Skill detail"
+- assertVisible: "Pop-up"
+- assertVisible: "beginner"

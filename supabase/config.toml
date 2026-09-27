@@ -1,0 +1,72 @@
+project_id = "skillsaggregator"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback", "skillsaggregator://auth/callback"]
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = true
+enable_manual_linking = true
+
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+redirect_uri = ""
+
+[storage]
+enabled = true
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+inspector_port = 8083
+
+# apply-suggestion is internal-only: its sole auth boundary is the
+# x-internal-token check inside the function (see B1/W7 in tasks.md).
+# Gateway-level JWT verification must stay OFF because the hosted runtime's
+# injected SUPABASE_SERVICE_ROLE_KEY is a new-format sb_secret_* key (not a
+# JWT); callFunction() puts it in Authorization: Bearer, and with verify_jwt
+# on, the functions gateway 401s every function-to-function call — which
+# orphaned 37 auto-approved TikTok suggestions on 2026-06-09/10.
+[functions.apply-suggestion]
+verify_jwt = false
+
+# coach-curation is internal-only: the function validates x-internal-token and
+# then uses the service role to call private coach RPCs that anon/authenticated
+# clients cannot execute directly.
+[functions.coach-curation]
+verify_jwt = false
+
+# skill-summary is internal-only: the function validates x-internal-token and runs
+# its RPCs as the service role, so the gateway JWT check would only reject the
+# routine's own calls. Same posture as coach-curation.
+[functions.skill-summary]
+verify_jwt = false
+
+# track-install is called before any identity exists — that is the whole point of
+# it, since the anonymous user is created lazily on first action and a user who
+# never acts would otherwise be invisible. The function validates the payload and
+# rate-limits by IP; the table it writes is service-role only.
+[functions.track-install]
+verify_jwt = false

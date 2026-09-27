@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Badminton court">
+  <rect width="960" height="540" fill="#2d6a4f"/>
+  <rect x="68" y="54" width="824" height="432" fill="#3c8a67"/>
+  <g fill="none" stroke="#f7f7f2" stroke-width="10">
+    <rect x="94" y="82" width="772" height="376"/>
+    <path d="M480 82v376M94 270h772M214 82v376M746 82v376M94 166h772M94 374h772"/>
+  </g>
+  <rect x="470" y="54" width="20" height="432" fill="#102026" opacity=".45"/>
+  <circle cx="480" cy="270" r="58" fill="#f7f7f2" opacity=".12"/>
+  <path d="M647 181c52 22 93 55 124 99-58-1-106-18-145-52 6-17 13-33 21-47Z" fill="#f7f7f2" opacity=".9"/>
+  <path d="M620 234c47 41 97 62 151 64-48 36-104 48-167 38-2-37 3-71 16-102Z" fill="#f0c36a" opacity=".95"/>
+</svg>

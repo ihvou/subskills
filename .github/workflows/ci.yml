@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:web
+        env:
+          NEXT_PUBLIC_BASE_URL: http://127.0.0.1:3000
+          REVALIDATE_SECRET: ci-secret
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned. Unpinned, the action installs its own default, CLI 2.20.3, whose
+      # Postgres image (15.8.1.054) will not let the postgres role create event
+      # triggers, so 0062 failed here although hosted accepted it. 2.98.2 brings
+      # 15.8.1.085, which does, and is the version the suite was verified on.
+      # Hosted itself runs Postgres 17.6 (17.6.1.127); config.toml still says 15.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.98.2
+      - run: supabase db start
+      - run: supabase db reset
+      - run: supabase test db

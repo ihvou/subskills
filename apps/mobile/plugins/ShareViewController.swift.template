@@ -1,0 +1,372 @@
+import UIKit
+import UniformTypeIdentifiers
+
+/**
+ * The share sheet form.
+ *
+ * A share extension cannot launch its containing app — Apple supports that only
+ * from Today and iMessage extension points, and the responder-chain workaround
+ * is a private selector. So rather than bouncing the user into Subskills, this
+ * does the whole job here: pick a category and a skill, choose Watch later
+ * and/or catalogue, save, and you are back in YouTube. That is the same shape
+ * as Telegram's share extension, which also completes in-process.
+ *
+ * The pickers are fetched live rather than read from a cache the app writes.
+ * A cache would be empty until the app had been opened once, and stale whenever
+ * a sport was added since. Both are avoidable: categories and skills are public
+ * data and the anon key already ships inside the app bundle.
+ */
+
+private enum Config {
+  static let supabaseUrl = "__SUPABASE_URL__"
+  static let anonKey = "__SUPABASE_ANON_KEY__"
+  static let appGroup = "__APP_GROUP__"
+  static let pendingKey = "pending_shared_requests"
+}
+
+private struct NamedRow {
+  let id: String
+  let name: String
+  let categoryId: String?
+}
+
+final class ShareViewController: UIViewController {
+  private var sharedURL: URL?
+  private var categories: [NamedRow] = []
+  private var skills: [NamedRow] = []
+  private var selectedCategory: NamedRow?
+  private var selectedSkill: NamedRow?
+  private var didFinish = false
+
+  private let card = UIView()
+  private let titleLabel = UILabel()
+  private let urlLabel = UILabel()
+  private let categoryButton = UIButton(type: .system)
+  private let skillButton = UIButton(type: .system)
+  private let watchLaterSwitch = UISwitch()
+  private let catalogueSwitch = UISwitch()
+  private let saveButton = UIButton(type: .system)
+  private let statusLabel = UILabel()
+  private let spinner = UIActivityIndicatorView(style: .medium)
+
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    // Clear, not a dim. The system already dims the host app behind a share
+    // sheet, so tinting here dimmed it twice and read as a grey slab.
+    view.backgroundColor = .clear
+    buildUI()
+
+    resolveSharedURL { [weak self] url in
+      guard let self else { return }
+      guard let url else {
+        // Nothing usable was shared. Say so rather than dismissing silently,
+        // which is indistinguishable from the extension being broken.
+        self.statusLabel.text = "That does not look like a video link."
+        self.saveButton.isEnabled = false
+        return
+      }
+      self.sharedURL = url
+      self.urlLabel.text = url.absoluteString
+      self.loadCategories()
+    }
+  }
+
+  // MARK: - UI
+
+  private func buildUI() {
+    card.backgroundColor = .systemBackground
+    card.layer.cornerRadius = 20
+    card.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(card)
+
+    titleLabel.text = "Save to Subskills"
+    titleLabel.font = .systemFont(ofSize: 18, weight: .bold)
+
+    urlLabel.font = .systemFont(ofSize: 13)
+    urlLabel.textColor = .secondaryLabel
+    urlLabel.numberOfLines = 2
+
+    configureMenuButton(categoryButton, placeholder: "Choose a sport")
+    configureMenuButton(skillButton, placeholder: "Choose a skill")
+
+    watchLaterSwitch.isOn = true
+    // Off. Sharing something you liked is a weaker signal than deliberately
+    // proposing it to a public catalogue, and this form is two taps inside
+    // someone else's app.
+    //
+    // This briefly defaulted on, because a private save cannot be marked
+    // watched — user_watched is keyed on link_skill_relation_id NOT NULL and a
+    // private save has no relation. That was fixing a data-model gap with a
+    // default, which is not a fix: it just made everyone publish to avoid it.
+    // The gap is closed properly in the migration that puts user_watched on
+    // link_id, the same move 0053 made for user_bookmarks.
+    catalogueSwitch.isOn = false
+
+    saveButton.setTitle("Save", for: .normal)
+    saveButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+    saveButton.backgroundColor = .label
+    saveButton.setTitleColor(.systemBackground, for: .normal)
+    saveButton.layer.cornerRadius = 12
+    saveButton.isEnabled = false
+    saveButton.addTarget(self, action: #selector(onSave), for: .touchUpInside)
+
+    let cancelButton = UIButton(type: .system)
+    cancelButton.setTitle("Cancel", for: .normal)
+    cancelButton.addTarget(self, action: #selector(onCancel), for: .touchUpInside)
+
+    statusLabel.font = .systemFont(ofSize: 13)
+    statusLabel.textColor = .secondaryLabel
+    statusLabel.numberOfLines = 2
+    statusLabel.text = "Loading sports..."
+
+    spinner.hidesWhenStopped = true
+
+    let stack = UIStackView(arrangedSubviews: [
+      titleLabel,
+      urlLabel,
+      labelled("Sport", categoryButton),
+      labelled("Skill", skillButton),
+      switchRow("Add to my Watch later", watchLaterSwitch),
+      switchRow("Also suggest to the catalogue", catalogueSwitch),
+      statusLabel,
+      saveButton,
+      cancelButton,
+    ])
+    stack.axis = .vertical
+    stack.spacing = 12
+    stack.setCustomSpacing(18, after: urlLabel)
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    card.addSubview(stack)
+
+    spinner.translatesAutoresizingMaskIntoConstraints = false
+    card.addSubview(spinner)
+
+    NSLayoutConstraint.activate([
+      card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+      card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+      card.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+      stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
+      stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+      stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+      stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+      saveButton.heightAnchor.constraint(equalToConstant: 50),
+      spinner.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+      spinner.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+    ])
+  }
+
+  private func configureMenuButton(_ button: UIButton, placeholder: String) {
+    button.setTitle(placeholder, for: .normal)
+    button.contentHorizontalAlignment = .leading
+    button.titleLabel?.font = .systemFont(ofSize: 16)
+    button.showsMenuAsPrimaryAction = true
+    button.isEnabled = false
+  }
+
+  private func labelled(_ text: String, _ control: UIView) -> UIView {
+    let caption = UILabel()
+    caption.text = text
+    caption.font = .systemFont(ofSize: 12, weight: .semibold)
+    caption.textColor = .secondaryLabel
+    let row = UIStackView(arrangedSubviews: [caption, control])
+    row.axis = .vertical
+    row.spacing = 2
+    return row
+  }
+
+  private func switchRow(_ text: String, _ control: UISwitch) -> UIView {
+    let caption = UILabel()
+    caption.text = text
+    caption.font = .systemFont(ofSize: 15)
+    caption.numberOfLines = 2
+    let row = UIStackView(arrangedSubviews: [caption, control])
+    row.axis = .horizontal
+    row.alignment = .center
+    row.spacing = 8
+    return row
+  }
+
+  // MARK: - Data
+
+  private func loadCategories() {
+    spinner.startAnimating()
+    let path = "/rest/v1/categories?select=id,slug,name&is_active=eq.true&order=name"
+    fetchRows(path) { [weak self] rows in
+      guard let self else { return }
+      self.spinner.stopAnimating()
+      guard !rows.isEmpty else {
+        // No network on a device that has never opened the app. Saving the URL
+        // alone still works; the app asks for the skill later.
+        self.statusLabel.text = "Could not load sports. Save the link and choose a skill in the app."
+        self.saveButton.isEnabled = true
+        return
+      }
+      self.categories = rows
+      self.categoryButton.isEnabled = true
+      self.categoryButton.menu = UIMenu(children: rows.map { row in
+        UIAction(title: row.name) { [weak self] _ in self?.selectCategory(row) }
+      })
+      self.statusLabel.text = "Choose a sport to continue."
+      self.selectCategory(rows[0])
+    }
+  }
+
+  private func selectCategory(_ category: NamedRow) {
+    selectedCategory = category
+    categoryButton.setTitle(category.name, for: .normal)
+    selectedSkill = nil
+    skillButton.setTitle("Loading skills...", for: .normal)
+    skillButton.isEnabled = false
+    saveButton.isEnabled = false
+
+    spinner.startAnimating()
+    // learning_order, not name: alphabetical puts "How to choose a racket"
+    // ahead of the strokes, which is the same reason Discover sorts this way.
+    let path = "/rest/v1/skills?select=id,name,category_id&is_active=eq.true"
+      + "&category_id=eq." + category.id
+      + "&order=learning_order.asc.nullslast"
+    fetchRows(path) { [weak self] rows in
+      guard let self else { return }
+      self.spinner.stopAnimating()
+      self.skills = rows
+      guard !rows.isEmpty else {
+        self.skillButton.setTitle("No skills found", for: .normal)
+        self.statusLabel.text = "That sport has no skills yet."
+        return
+      }
+      self.skillButton.isEnabled = true
+      self.skillButton.menu = UIMenu(children: rows.map { row in
+        UIAction(title: row.name) { [weak self] _ in self?.selectSkill(row) }
+      })
+      self.selectSkill(rows[0])
+    }
+  }
+
+  private func selectSkill(_ skill: NamedRow) {
+    selectedSkill = skill
+    skillButton.setTitle(skill.name, for: .normal)
+    statusLabel.text = nil
+    saveButton.isEnabled = true
+  }
+
+  private func fetchRows(_ path: String, completion: @escaping ([NamedRow]) -> Void) {
+    guard let url = URL(string: Config.supabaseUrl + path) else {
+      DispatchQueue.main.async { completion([]) }
+      return
+    }
+    var request = URLRequest(url: url)
+    request.setValue(Config.anonKey, forHTTPHeaderField: "apikey")
+    request.timeoutInterval = 10
+    URLSession.shared.dataTask(with: request) { data, _, _ in
+      var rows: [NamedRow] = []
+      if let data,
+         let parsed = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+        rows = parsed.compactMap { item in
+          guard let id = item["id"] as? String, let name = item["name"] as? String else { return nil }
+          return NamedRow(id: id, name: name, categoryId: item["category_id"] as? String)
+        }
+      }
+      DispatchQueue.main.async { completion(rows) }
+    }.resume()
+  }
+
+  // MARK: - Save
+
+  @objc private func onSave() {
+    guard let sharedURL else { return finish() }
+
+    // The complete request, not just the URL. The app sends it on next open
+    // without asking the user anything again — and because the extension can be
+    // killed at any moment, writing it here is what guarantees it survives.
+    var payload: [String: Any] = [
+      "url": sharedURL.absoluteString,
+      "add_to_watch_later": watchLaterSwitch.isOn,
+      "suggest_to_catalog": catalogueSwitch.isOn,
+      "created_at": ISO8601DateFormatter().string(from: Date()),
+    ]
+    if let category = selectedCategory { payload["category_id"] = category.id }
+    if let skill = selectedSkill {
+      payload["skill_id"] = skill.id
+      payload["skill_name"] = skill.name
+    }
+
+    if let defaults = UserDefaults(suiteName: Config.appGroup),
+       let encoded = try? JSONSerialization.data(withJSONObject: payload),
+       let json = String(data: encoded, encoding: .utf8) {
+      var pending = defaults.stringArray(forKey: Config.pendingKey) ?? []
+      pending.append(json)
+      // Cap it: nothing drains this until the app is opened, and an unbounded
+      // queue on a device that never opens the app is a leak.
+      defaults.set(Array(pending.suffix(50)), forKey: Config.pendingKey)
+    }
+
+    statusLabel.text = "Saved to Subskills."
+    saveButton.isEnabled = false
+    // Long enough to read, short enough not to hold up the host app.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.finish() }
+  }
+
+  @objc private func onCancel() {
+    finish()
+  }
+
+  /// Releasing the host app is the one thing this controller owes the system,
+  /// and it must happen exactly once.
+  private func finish() {
+    guard !didFinish else { return }
+    didFinish = true
+    extensionContext?.completeRequest(returningItems: nil)
+  }
+
+  // MARK: - Input
+
+  private func resolveSharedURL(completion: @escaping (URL?) -> Void) {
+    let providers = extensionContext?.inputItems
+      .compactMap { $0 as? NSExtensionItem }
+      .flatMap { $0.attachments ?? [] } ?? []
+
+    if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
+      provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, _ in
+        DispatchQueue.main.async {
+          completion((item as? URL) ?? URL(string: item as? String ?? ""))
+        }
+      }
+      return
+    }
+
+    if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) {
+      provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
+        let text = item as? String
+        let url = text.flatMap(Self.firstURL(in:))
+        DispatchQueue.main.async { completion(url) }
+      }
+      return
+    }
+
+    completion(nil)
+  }
+
+  private static func firstURL(in text: String) -> URL? {
+    guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+      return nil
+    }
+    let range = NSRange(text.startIndex..<text.endIndex, in: text)
+    return detector
+      .matches(in: text, options: [], range: range)
+      .compactMap(\.url)
+      .first(where: isSupportedURL)
+  }
+
+  private static func isSupportedURL(_ url: URL) -> Bool {
+    guard let host = url.host?.lowercased().replacingOccurrences(of: "^www\\.", with: "", options: .regularExpression) else {
+      return false
+    }
+    return host == "youtu.be" ||
+      host == "youtube.com" ||
+      host.hasSuffix(".youtube.com") ||
+      host == "tiktok.com" ||
+      host.hasSuffix(".tiktok.com") ||
+      host == "instagram.com" ||
+      host.hasSuffix(".instagram.com")
+  }
+}

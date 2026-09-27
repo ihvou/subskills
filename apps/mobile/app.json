@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "Subskills",
+    "slug": "skillsaggregator",
+    "scheme": "subskills",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f3d2e"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "xyz.subskills.app",
+      "icon": "./assets/icon.png",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {}
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "xyz.subskills.app",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.DUMP"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f3d2e"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-apple-authentication",
+      "./plugins/withShareTargets",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": false
+          }
+        }
+      ]
+    ],
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "extra": {
+      "router": {},
+      "appleTeamId": "T3J6K9GV2B",
+      "eas": {
+        "projectId": "b28d7bb9-b600-4b38-b0ee-5caedf659448",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "SubskillsShareExtension",
+                  "bundleIdentifier": "xyz.subskills.app.share"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "owner": "ihvou"
+  }
+}

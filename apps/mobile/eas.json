@@ -1,0 +1,44 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://vqxsaabskkkjdljxiyqi.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_GSowsbQ04aJmrQ5EgZTWQQ_h959Qs-c",
+        "EXPO_PUBLIC_WEB_BASE_URL": "https://subskills.xyz"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "autoIncrement": true
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://vqxsaabskkkjdljxiyqi.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_GSowsbQ04aJmrQ5EgZTWQQ_h959Qs-c",
+        "EXPO_PUBLIC_WEB_BASE_URL": "https://subskills.xyz"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}

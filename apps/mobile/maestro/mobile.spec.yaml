@@ -1,0 +1,11 @@
+appId: com.skillsaggregator.mobile
+---
+- launchApp
+- assertVisible: "Skills Aggregator"
+- tapOn: "Gym (men)"
+- assertVisible: "Gym (men)"
+- assertVisible: "Barbell squat"
+- tapOn: "Barbell squat"
+- assertVisible: "Skill detail"
+- tapOn: "Library"
+- assertVisible: "Library"

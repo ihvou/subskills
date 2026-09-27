@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F6F1E8"/>
+  <circle cx="986" cy="116" r="120" fill="#B8F2D0"/>
+  <circle cx="1016" cy="146" r="82" fill="#54D17A"/>
+  <rect x="84" y="102" width="132" height="132" rx="34" fill="#0F3D2E"/>
+  <path d="M121 145h41a10 10 0 0 1 0 20h-41a10 10 0 0 1 0-20Z" fill="#B8F2D0"/>
+  <path d="M121 177h61a10 10 0 0 1 0 20h-61a10 10 0 0 1 0-20Z" fill="#F6F1E8"/>
+  <path d="m171 150 29 18-29 18v-36Z" fill="#E53D2F"/>
+  <text x="84" y="322" fill="#17201B" font-family="Inter, Arial, sans-serif" font-size="84" font-weight="800">Subskills</text>
+  <text x="88" y="398" fill="#4D5A53" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="600">Free tutorials organized by sport, sub-skill, and level.</text>
+  <rect x="88" y="472" width="206" height="42" rx="21" fill="#0F3D2E"/>
+  <text x="116" y="500" fill="#F6F1E8" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800">Learn the next move</text>
+</svg>
