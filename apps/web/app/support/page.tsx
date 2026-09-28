@@ -36,7 +36,7 @@ function issueUrl(searchParams: SupportSearchParams) {
     "",
     "What happened?",
   ].filter(Boolean).join("\n");
-  const url = new URL("https://github.com/ihvou/skillsaggregator/issues/new");
+  const url = new URL("https://github.com/ihvou/subskills/issues/new");
   url.searchParams.set("title", reportTitle);
   url.searchParams.set("body", body);
   return url.toString();
@@ -83,9 +83,9 @@ export default async function SupportPage({
               Open a support issue at{" "}
               <a
                 className="focus-ring font-semibold text-ink underline decoration-divider underline-offset-4 transition hover:decoration-ink"
-                href="https://github.com/ihvou/skillsaggregator/issues"
+                href="https://github.com/ihvou/subskills/issues"
               >
-                github.com/ihvou/skillsaggregator/issues
+                github.com/ihvou/subskills/issues
               </a>
               . Include the affected resource URL, category, skill, and a short description
               of the problem.

@@ -67,9 +67,9 @@ export default function PrivacyPage() {
           For privacy questions, open an issue at{" "}
           <a
             className="focus-ring font-semibold text-ink underline decoration-divider underline-offset-4 transition hover:decoration-ink"
-            href="https://github.com/ihvou/skillsaggregator/issues"
+            href="https://github.com/ihvou/subskills/issues"
           >
-            github.com/ihvou/skillsaggregator/issues
+            github.com/ihvou/subskills/issues
           </a>
           .
           {" "}For account deletion, use{" "}
